@@ -1,0 +1,23 @@
+# TeleShell Configuration File
+
+# Default channels to summarize when no --channels option is provided
+default_channels:
+  - '@example_channel'
+
+# Summary Configuration
+summary_config:
+  # Options: short, medium, long, or a number of sentences (e.g., 5)
+  length: medium
+
+# AI Prompt Templates (optional override)
+# prompt_templates:
+#   default_summary: |
+#     Summarize the following Telegram messages from the channel '{{channel_name}}'
+#     for the period '{{time_period}}'. Focus on key topics and highlights
+#     and provide the summary {{summary_length_guideline}}.
+#
+#     Messages:
+#     {{messages}}
+
+# Checkpoints (managed automatically, do not edit manually)
+checkpoints: {}
