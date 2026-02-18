@@ -44,7 +44,7 @@ async def run_summarize(
     verbose: bool,
     config_manager: ConfigManager
 ) -> None:
-    """Async core of the summarize command with precise time-range reporting."""
+    """Async core of the summarize command with optimized color scheme for readability."""
     load_dotenv()
     
     api_id = int(os.getenv("TELEGRAM_API_ID", 0))
@@ -58,7 +58,7 @@ async def run_summarize(
     config = config_manager.load()
     limit = 1000 
     
-    console.print("[cyan]📡 Connecting to Telegram...[/cyan]")
+    console.print("[bold cyan]📡 Connecting to Telegram...[/bold cyan]")
     tg_client = TelegramClientWrapper(api_id, api_hash)
     summarizer = Summarizer(api_key=gemini_key)
     
@@ -75,7 +75,7 @@ async def run_summarize(
                 offset_id = checkpoint.get("last_message_id", 0)
                 since_label = f"last run (ID: {offset_id})"
             else:
-                console.print(f"[yellow]⚠️ No checkpoint for {channel}.[/yellow] Please specify a time window (e.g., -t 24h).")
+                console.print(f"[bold yellow]⚠️ No checkpoint for {channel}.[/bold yellow] Please specify a time window (e.g., -t 24h).")
                 continue
         else:
             offset_date = parse_time_window(time_window)
@@ -84,7 +84,7 @@ async def run_summarize(
                 return
             since_label = offset_date.strftime("%Y-%m-%d %H:%M")
 
-        console.print(f"[blue]🔍 Channel {channel}:[/blue] Fetching messages since {since_label} (Limit: {limit})...")
+        console.print(f"[bold white]🔍 Channel {channel}:[/bold white] Fetching messages since [cyan]{since_label}[/cyan] (Limit: {limit})...")
 
         # Fetch limit + 1
         messages = await tg_client.fetch_messages(
@@ -105,8 +105,6 @@ async def run_summarize(
             messages = messages[:limit]
             actual_count = limit
             
-        # Get actual time range from fetched messages
-        # messages are sorted newest first
         newest_date = messages[0]["date"].strftime("%Y-%m-%d %H:%M")
         oldest_date = messages[-1]["date"].strftime("%Y-%m-%d %H:%M")
         
@@ -114,9 +112,9 @@ async def run_summarize(
             console.print(f"[bold yellow]⚠️ Warning:[/bold yellow] Limit reached! Only {limit} messages fetched.")
             console.print(f"[yellow]Range: {oldest_date} to {newest_date}[/yellow]")
         else:
-            console.print(f"[blue]📥 Found {actual_count} messages (Range: {oldest_date} to {newest_date}). Preparing summary...[/blue]")
+            console.print(f"[bold bright_blue]📥 Found {actual_count} messages[/bold bright_blue] (Range: {oldest_date} to {newest_date}).")
 
-        console.print(f"[magenta]🤖 Generating AI summary using {summarizer.model}...[/magenta]")
+        console.print(f"[bold yellow]🤖 Generating AI summary using {summarizer.model}...[/bold yellow]")
         
         summary_text = await summarizer.summarize(
             messages=messages,
@@ -141,7 +139,7 @@ async def run_summarize(
         last_msg_id = messages[0]["id"]
         last_msg_date = messages[0]["date"].isoformat()
         config_manager.update_checkpoint(channel, last_msg_id, last_msg_date)
-        console.print(f"[dim green]✅ Checkpoint updated for {channel}[/dim green]\n")
+        console.print(f"[green]✅ Checkpoint updated for {channel}[/green]\n")
 
 @click.group()
 @click.pass_context
