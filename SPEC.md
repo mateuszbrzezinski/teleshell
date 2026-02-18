@@ -197,27 +197,24 @@ The following tools will be used to enforce code standards:
 *   **Custom Output Formats:** Markdown files, JSON output, etc.
 
 ## 11. Acceptance Criteria (Milestone 1)
-*   **Core Functionality:**
-    *   User can run `tshell summarize -c <channel> -t <time-window>` where `<time-window>` is a flexible option (e.g., `24h`, `3d`, `today`, `yesterday`).
-    *   User can run `tshell summarize -t since_last_run` (using default channels from `config.yaml`).
-    *   Application correctly fetches messages from Telegram for the specified channels and timeframes.
-    *   Application successfully generates a coherent, relevant, and configurable summary using Google Gemini via LiteLLM.
-    *   Summary is clearly displayed in the console with appropriate formatting.
-*   **Configuration & State Management:**
-    *   `config.yaml` correctly updates `checkpoints` (last message ID and date) after `since_last_run` usage for each channel.
-    *   `config.yaml` can be used to define `default_channels` and `summary_config.length`.
-    *   All sensitive credentials (Telegram API ID/HASH, Gemini API Key) are loaded securely from `.env`.
-*   **User Experience:**
-    *   First-time Telegram authentication is handled via an interactive CLI prompt (asking for phone number and verification code), and a session file is securely stored in `~/.teleshell/telegram.session`.
-    *   Informative error messages are displayed for invalid input (e.g., `time-window` format), missing channels, or API errors.
-    *   When `since_last_run` is used without a prior checkpoint for a specific channel, the application will **require** the user to provide an explicit `--time-window` (e.g., `today`, `24h`) and display an informative error message.
-*   **Code Quality & Testing:**
-    *   All defined Unit, Integration, and E2E tests pass consistently.
-    *   Code adheres to `Black` formatting and passes `Ruff` linting checks.
-    *   Code passes `Mypy` static type checking.
-    *   Project is installable via `pip install .` (or `pip install -e .` for development).
-*   **CI/CD:**
-    *   GitHub Actions workflow successfully runs linting, formatting checks, and all tests on `push` and `pull_request`.
+*   ... (existing criteria) ...
+
+## 12. Milestone 1 Extension: Enhanced UX & Observability
+This extension focuses on making the CLI more informative and visually appealing.
+
+### Progress Reporting (Observability)
+The application will provide real-time feedback during execution:
+*   **Connection Status:** "📡 Connecting to Telegram..."
+*   **Context Discovery:** "🔍 Channel @name: Fetching messages from [Date/Time] to [Date/Time]..."
+*   **Data Summary:** "📥 Found {N} messages."
+*   **AI Stage:** "🤖 Generating AI summary using [Model]..."
+
+### Rich Output Formatting (UX)
+The final output will be structured for better readability:
+*   **Headers:** Clear distinction between channel metadata and the summary content.
+*   **Metadata Block:** Displaying channel name, timeframe, and message count.
+*   **Visual Separators:** Using lines (e.g., `━━━━`) to frame the summary.
+*   **Formatting Guidelines:** Instructing the LLM (via prompt) to use bullet points for key highlights when appropriate.
 
 ---
 *Status: Draft - Awaiting Stakeholder Review.*
