@@ -52,4 +52,4 @@ async def test_summarize_call():
         mock_acompletion.assert_called_once()
         # Verify model used is gemini
         args, kwargs = mock_acompletion.call_args
-        assert kwargs["model"] == "gemini/gemini-pro"
+        assert kwargs["model"] == "gemini/gemini-2.0-flash"

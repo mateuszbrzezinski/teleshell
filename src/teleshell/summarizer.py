@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Union
 class Summarizer:
     """Handles AI-powered summarization using LiteLLM."""
 
-    def __init__(self, api_key: str, model: str = "gemini/gemini-pro") -> None:
+    def __init__(self, api_key: str, model: str = "gemini/gemini-2.0-flash") -> None:
         self.api_key = api_key
         self.model = model
         # Configure LiteLLM
