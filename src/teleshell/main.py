@@ -80,6 +80,7 @@ async def run_summarize(
 
         messages = await tg_client.fetch_messages(
             channel, 
+            limit=1000, 
             offset_id=offset_id, 
             offset_date=offset_date
         )

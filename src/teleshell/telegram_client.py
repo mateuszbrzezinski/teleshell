@@ -28,13 +28,16 @@ class TelegramClientWrapper:
     async def fetch_messages(
         self, 
         channel: str, 
-        limit: int = 100, 
+        limit: Optional[int] = 500, 
         offset_id: int = 0,
         offset_date: Optional[Any] = None
     ) -> List[Dict[str, Any]]:
         """Fetch messages from a specific Telegram channel."""
         messages_data = []
         async with self.client:
+            # Telethon's get_messages fetches messages newer than offset_date 
+            # if we use it as the 'reverse' logic or offset_id.
+            # For simplicity in M1, we fetch up to 'limit' messages.
             messages = await self.client.get_messages(
                 channel, 
                 limit=limit, 
