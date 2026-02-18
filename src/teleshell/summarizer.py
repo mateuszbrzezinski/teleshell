@@ -37,6 +37,9 @@ class Summarizer:
         prompt = prompt.replace("{{time_period}}", time_period)
         prompt = prompt.replace("{{summary_length_guideline}}", summary_length_guideline)
         prompt = prompt.replace("{{messages}}", messages)
+        
+        # Add internal formatting guidelines
+        prompt += "\n\nFormat the output using Markdown. Use bold for key terms and bullet points for highlights where appropriate."
         return prompt
 
     async def summarize(
