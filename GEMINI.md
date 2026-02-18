@@ -11,7 +11,9 @@
 *   **GitHub Actions:** Ensure all CI/CD workflows are optimized for security and utilize GitHub contexts for secret management.
 
 ## 3. Engineering Standards
-*   **Language:** Python 3.9+ with strict type hinting (`mypy`).
+*   **Language:** Python 3.10+ with strict type hinting (`mypy`).
+*   **Dependency Management:** `uv` is the mandatory tool for environment isolation and package management. Always use `uv sync` and `uv run`.
+*   **Git & Commits:** Use **Conventional Commits** (e.g., `feat:`, `fix:`, `chore:`, `docs:`). The developer has the autonomy to perform commits after logical milestones, successful implementations, or passing tests without waiting for stakeholder's explicit request.
 *   **Linting/Formatting:** `Ruff` and `Black` are mandatory. Run them before every commit.
 *   **Modular Design:** Keep Telegram, AI, and CLI logic strictly decoupled.
 *   **Security:** Never log or commit `.env` or `.session` files.
