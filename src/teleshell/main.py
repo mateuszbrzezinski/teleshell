@@ -44,7 +44,7 @@ async def run_summarize(
     verbose: bool,
     config_manager: ConfigManager
 ) -> None:
-    """Async core of the summarize command with Rich output."""
+    """Async core of the summarize command with enhanced observability and limit handling."""
     load_dotenv()
     
     api_id = int(os.getenv("TELEGRAM_API_ID", 0))
@@ -56,6 +56,7 @@ async def run_summarize(
         return
 
     config = config_manager.load()
+    limit = 1000 # Default limit for M1
     
     console.print("[cyan]📡 Connecting to Telegram...[/cyan]")
     tg_client = TelegramClientWrapper(api_id, api_hash)
@@ -66,12 +67,13 @@ async def run_summarize(
     for channel in channels:
         offset_date = None
         offset_id = 0
+        since_label = ""
         
         if time_window == "since_last_run":
             checkpoint = config.get("checkpoints", {}).get(channel)
             if checkpoint:
                 offset_id = checkpoint.get("last_message_id", 0)
-                console.print(f"[blue]🔍 Channel {channel}:[/blue] Fetching since last run (ID: {offset_id})...")
+                since_label = f"last run (ID: {offset_id})"
             else:
                 console.print(f"[yellow]⚠️ No checkpoint for {channel}.[/yellow] Please specify a time window (e.g., -t 24h).")
                 continue
@@ -80,22 +82,40 @@ async def run_summarize(
             if not offset_date:
                 console.print(f"[bold red]❌ Invalid time window format:[/bold red] {time_window}")
                 return
-            
-            start_str = offset_date.strftime("%Y-%m-%d %H:%M")
-            console.print(f"[blue]🔍 Channel {channel}:[/blue] Fetching messages since {start_str}...")
+            since_label = offset_date.strftime("%Y-%m-%d %H:%M")
 
+        console.print(f"[blue]🔍 Channel {channel}:[/blue] Checking messages since {since_label} (Limit: {limit})...")
+
+        # Step 1: Check total count before fetching
+        total_count = await tg_client.get_message_count(channel, offset_id=offset_id, offset_date=offset_date)
+        
+        if total_count == 0:
+            console.print(f"[dim]ℹ️ No new messages found for {channel}.[/dim]")
+            continue
+
+        if total_count > limit:
+            console.print(f"[bold yellow]⚠️ Warning:[/bold yellow] Found {total_count} messages, which exceeds the limit of {limit}.")
+            console.print(f"[yellow]Only the first {limit} messages (chronologically) will be processed.[/yellow]")
+        else:
+            console.print(f"[blue]📥 Found {total_count} messages. Fetching...[/blue]")
+
+        # Step 2: Fetch the actual messages
         messages = await tg_client.fetch_messages(
             channel, 
-            limit=1000, 
+            limit=limit, 
             offset_id=offset_id, 
             offset_date=offset_date
         )
         
         if not messages:
-            console.print(f"[dim]ℹ️ No new messages for {channel}.[/dim]")
+            console.print(f"[dim]ℹ️ Fetching returned no messages.[/dim]")
             continue
 
-        console.print(f"[blue]📥 Found {len(messages)} messages. Preparing summary...[/blue]")
+        # If we hit the limit, inform user about the actual covered period
+        if len(messages) >= limit:
+            oldest_fetched = messages[-1]["date"].strftime("%Y-%m-%d %H:%M")
+            console.print(f"[yellow]Note: Due to limit, summary covers messages up to {oldest_fetched}.[/yellow]")
+
         console.print(f"[magenta]🤖 Generating AI summary using {summarizer.model}...[/magenta]")
         
         summary_text = await summarizer.summarize(
@@ -112,12 +132,12 @@ async def run_summarize(
         console.print(Panel(
             md,
             title=f"[bold green]📡 TeleShell Summary: {channel}[/bold green]",
-            subtitle=f"[dim]Period: {time_window} | Analyzed: {len(messages)} messages[/dim]",
+            subtitle=f"[dim]Analyzed: {len(messages)}/{total_count} messages[/dim]",
             border_style="green",
             padding=(1, 2)
         ))
         
-        # Update checkpoint
+        # Update checkpoint with the NEWEST message ID (from the list)
         last_msg_id = messages[0]["id"]
         last_msg_date = messages[0]["date"].isoformat()
         config_manager.update_checkpoint(channel, last_msg_id, last_msg_date)

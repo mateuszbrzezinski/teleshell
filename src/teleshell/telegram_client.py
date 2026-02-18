@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from telethon import TelegramClient
 from telethon.tl.types import Message
 
@@ -25,6 +25,24 @@ class TelegramClientWrapper:
         
         self.client = TelegramClient(str(session_path), api_id, api_hash)
 
+    async def get_message_count(
+        self,
+        channel: str,
+        offset_id: int = 0,
+        offset_date: Optional[Any] = None
+    ) -> int:
+        """Get the total count of messages in a range without fetching them."""
+        async with self.client:
+            kwargs = {"limit": 0}
+            if offset_id > 0:
+                kwargs["min_id"] = offset_id
+            elif offset_date:
+                kwargs["offset_date"] = offset_date
+                kwargs["reverse"] = True
+            
+            result = await self.client.get_messages(channel, **kwargs)
+            return getattr(result, "total", 0)
+
     async def fetch_messages(
         self, 
         channel: str, 
@@ -44,14 +62,11 @@ class TelegramClientWrapper:
             }
             
             if offset_id > 0:
-                # min_id ensures we only get messages NEWER than this ID
                 kwargs["min_id"] = offset_id
             elif offset_date:
-                # offset_date + reverse=True ensures we start at the date and go FORWARD
                 kwargs["offset_date"] = offset_date
                 kwargs["reverse"] = True
             
-            # Fetch messages from Telegram
             messages = await self.client.get_messages(channel, **kwargs)
             
             for msg in messages:
@@ -63,8 +78,7 @@ class TelegramClientWrapper:
                         "sender_id": msg.sender_id
                     })
         
-        # We sort by ID descending (newest first) to keep internal logic consistent
-        # across all components (especially checkpointing in main.py).
+        # Sort newest first
         messages_data.sort(key=lambda x: x["id"], reverse=True)
         return messages_data
 
