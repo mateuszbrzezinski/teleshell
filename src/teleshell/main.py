@@ -5,9 +5,16 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 
+# Rich UI
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+
 from teleshell.config import ConfigManager
 from teleshell.telegram_client import TelegramClientWrapper
 from teleshell.summarizer import Summarizer
+
+console = Console()
 
 def parse_time_window(window: str) -> Optional[datetime]:
     """Parse time window string into a start date."""
@@ -37,7 +44,7 @@ async def run_summarize(
     verbose: bool,
     config_manager: ConfigManager
 ) -> None:
-    """Async core of the summarize command with enhanced UX and observability."""
+    """Async core of the summarize command with Rich output."""
     load_dotenv()
     
     api_id = int(os.getenv("TELEGRAM_API_ID", 0))
@@ -45,16 +52,15 @@ async def run_summarize(
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     
     if not api_id or not api_hash or not gemini_key:
-        click.secho("Error: Missing API credentials in .env file.", fg="red")
+        console.print("[bold red]Error:[/bold red] Missing API credentials in .env file.")
         return
 
     config = config_manager.load()
     
-    click.secho("📡 Connecting to Telegram...", fg="cyan")
+    console.print("[cyan]📡 Connecting to Telegram...[/cyan]")
     tg_client = TelegramClientWrapper(api_id, api_hash)
     summarizer = Summarizer(api_key=gemini_key)
     
-    # Initialize Telegram session
     await tg_client.start()
 
     for channel in channels:
@@ -65,18 +71,18 @@ async def run_summarize(
             checkpoint = config.get("checkpoints", {}).get(channel)
             if checkpoint:
                 offset_id = checkpoint.get("last_message_id", 0)
-                click.secho(f"🔍 Channel {channel}: Fetching since last run (ID: {offset_id})...", fg="blue")
+                console.print(f"[blue]🔍 Channel {channel}:[/blue] Fetching since last run (ID: {offset_id})...")
             else:
-                click.secho(f"⚠️ No checkpoint for {channel}. Please specify a time window (e.g., -t 24h).", fg="yellow")
+                console.print(f"[yellow]⚠️ No checkpoint for {channel}.[/yellow] Please specify a time window (e.g., -t 24h).")
                 continue
         else:
             offset_date = parse_time_window(time_window)
             if not offset_date:
-                click.secho(f"❌ Invalid time window format: {time_window}", fg="red")
+                console.print(f"[bold red]❌ Invalid time window format:[/bold red] {time_window}")
                 return
             
             start_str = offset_date.strftime("%Y-%m-%d %H:%M")
-            click.secho(f"🔍 Channel {channel}: Fetching messages since {start_str}...", fg="blue")
+            console.print(f"[blue]🔍 Channel {channel}:[/blue] Fetching messages since {start_str}...")
 
         messages = await tg_client.fetch_messages(
             channel, 
@@ -86,13 +92,13 @@ async def run_summarize(
         )
         
         if not messages:
-            click.secho(f"ℹ️ No new messages for {channel}.", fg="white", dim=True)
+            console.print(f"[dim]ℹ️ No new messages for {channel}.[/dim]")
             continue
 
-        click.secho(f"📥 Found {len(messages)} messages. Preparing summary...", fg="blue")
+        console.print(f"[blue]📥 Found {len(messages)} messages. Preparing summary...[/blue]")
+        console.print(f"[magenta]🤖 Generating AI summary using {summarizer.model}...[/magenta]")
         
-        click.secho(f"🤖 Generating AI summary using {summarizer.model}...", fg="magenta")
-        summary = await summarizer.summarize(
+        summary_text = await summarizer.summarize(
             messages=messages,
             channel_name=channel,
             time_period=time_window,
@@ -100,20 +106,22 @@ async def run_summarize(
             template=config.get("prompt_templates", {}).get("default_summary")
         )
         
-        # Display the summary in a rich format
-        click.echo("\n" + "━" * 60)
-        click.secho(f"📡 [TeleShell] {channel}", bold=True, fg="green")
-        click.secho(f"📅 Period: {time_window}", dim=True)
-        click.secho(f"📥 Analyzed: {len(messages)} messages", dim=True)
-        click.echo("-" * 20)
-        click.echo(summary)
-        click.echo("━" * 60)
+        # Rich Markdown Rendering
+        md = Markdown(summary_text)
+        console.print("\n")
+        console.print(Panel(
+            md,
+            title=f"[bold green]📡 TeleShell Summary: {channel}[/bold green]",
+            subtitle=f"[dim]Period: {time_window} | Analyzed: {len(messages)} messages[/dim]",
+            border_style="green",
+            padding=(1, 2)
+        ))
         
-        # Update checkpoint with the latest message ID
+        # Update checkpoint
         last_msg_id = messages[0]["id"]
         last_msg_date = messages[0]["date"].isoformat()
         config_manager.update_checkpoint(channel, last_msg_id, last_msg_date)
-        click.secho(f"✅ Checkpoint updated for {channel} (Last ID: {last_msg_id})\n", fg="green", dim=True)
+        console.print(f"[dim green]✅ Checkpoint updated for {channel}[/dim green]\n")
 
 @click.group()
 @click.pass_context
@@ -139,7 +147,7 @@ def summarize(ctx: click.Context, channels: Optional[str], time_window: str, ver
         channel_list = config.get("default_channels", [])
         
     if not channel_list:
-        click.secho("Error: No channels provided and no default channels found in config.yaml.", fg="red")
+        console.print("[bold red]Error:[/bold red] No channels provided and no default channels found in config.yaml.")
         return
 
     asyncio.run(run_summarize(channel_list, time_window, verbose, config_manager))
