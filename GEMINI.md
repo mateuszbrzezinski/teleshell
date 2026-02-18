@@ -1,7 +1,7 @@
 # TeleShell: Gemini Operational Mandates
 
 ## 1. Core Development Philosophy
-*   **Spec-Driven Development (SDD):** Never write code without an approved entry in `SPEC.md`. The spec is the single source of truth.
+*   **Spec-Driven Development (SDD):** All new requirements or changes MUST first be documented and approved in `SPEC.md`. Never write code without an approved entry in `SPEC.md`. The spec is the single source of truth.
 *   **Test-Driven Development (TDD):** Write failing tests (unit/integration) before any functional code. Aim for high coverage and reliability.
 *   **AI-Driven/Spec-Driven:** Use advanced reasoning to ensure code strictly matches the specification.
 
