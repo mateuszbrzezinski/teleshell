@@ -185,6 +185,7 @@ The following tools will be used to enforce code standards:
 *   `python-dotenv` (for loading `.env` files)
 *   `pyyaml` (for `config.yaml` parsing)
 *   `click` or `typer` (for CLI framework)
+*   `rich` (for beautiful terminal rendering)
 *   `pytest` (for testing)
 *   `black` (for code formatting)
 *   `ruff` (for linting)
@@ -211,6 +212,7 @@ The application will provide real-time feedback during execution:
 
 ### Rich Output Formatting (UX)
 The final output will be structured for better readability:
+*   **Markdown Rendering:** Using the `rich` library to render AI-generated Markdown content (bold, lists, headers) directly in the terminal.
 *   **Headers:** Clear distinction between channel metadata and the summary content.
 *   **Metadata Block:** Displaying channel name, timeframe, and message count.
 *   **Visual Separators:** Using lines (e.g., `━━━━`) to frame the summary.
