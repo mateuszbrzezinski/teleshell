@@ -44,7 +44,7 @@ async def run_summarize(
     verbose: bool,
     config_manager: ConfigManager
 ) -> None:
-    """Async core of the summarize command with enhanced observability and limit handling."""
+    """Async core of the summarize command with precise time-range reporting."""
     load_dotenv()
     
     api_id = int(os.getenv("TELEGRAM_API_ID", 0))
@@ -56,7 +56,7 @@ async def run_summarize(
         return
 
     config = config_manager.load()
-    limit = 1000 # Default limit for M1
+    limit = 1000 
     
     console.print("[cyan]📡 Connecting to Telegram...[/cyan]")
     tg_client = TelegramClientWrapper(api_id, api_hash)
@@ -84,44 +84,44 @@ async def run_summarize(
                 return
             since_label = offset_date.strftime("%Y-%m-%d %H:%M")
 
-        console.print(f"[blue]🔍 Channel {channel}:[/blue] Checking messages since {since_label} (Limit: {limit})...")
+        console.print(f"[blue]🔍 Channel {channel}:[/blue] Fetching messages since {since_label} (Limit: {limit})...")
 
-        # Step 1: Check total count before fetching
-        total_count = await tg_client.get_message_count(channel, offset_id=offset_id, offset_date=offset_date)
-        
-        if total_count == 0:
-            console.print(f"[dim]ℹ️ No new messages found for {channel}.[/dim]")
-            continue
-
-        if total_count > limit:
-            console.print(f"[bold yellow]⚠️ Warning:[/bold yellow] Found {total_count} messages, which exceeds the limit of {limit}.")
-            console.print(f"[yellow]Only the first {limit} messages (chronologically) will be processed.[/yellow]")
-        else:
-            console.print(f"[blue]📥 Found {total_count} messages. Fetching...[/blue]")
-
-        # Step 2: Fetch the actual messages
+        # Fetch limit + 1
         messages = await tg_client.fetch_messages(
             channel, 
-            limit=limit, 
+            limit=limit + 1, 
             offset_id=offset_id, 
             offset_date=offset_date
         )
         
         if not messages:
-            console.print(f"[dim]ℹ️ Fetching returned no messages.[/dim]")
+            console.print(f"[dim]ℹ️ No new messages found for {channel}.[/dim]")
             continue
 
-        # If we hit the limit, inform user about the actual covered period
-        if len(messages) >= limit:
-            oldest_fetched = messages[-1]["date"].strftime("%Y-%m-%d %H:%M")
-            console.print(f"[yellow]Note: Due to limit, summary covers messages up to {oldest_fetched}.[/yellow]")
+        actual_count = len(messages)
+        is_limited = actual_count > limit
+        
+        if is_limited:
+            messages = messages[:limit]
+            actual_count = limit
+            
+        # Get actual time range from fetched messages
+        # messages are sorted newest first
+        newest_date = messages[0]["date"].strftime("%Y-%m-%d %H:%M")
+        oldest_date = messages[-1]["date"].strftime("%Y-%m-%d %H:%M")
+        
+        if is_limited:
+            console.print(f"[bold yellow]⚠️ Warning:[/bold yellow] Limit reached! Only {limit} messages fetched.")
+            console.print(f"[yellow]Range: {oldest_date} to {newest_date}[/yellow]")
+        else:
+            console.print(f"[blue]📥 Found {actual_count} messages (Range: {oldest_date} to {newest_date}). Preparing summary...[/blue]")
 
         console.print(f"[magenta]🤖 Generating AI summary using {summarizer.model}...[/magenta]")
         
         summary_text = await summarizer.summarize(
             messages=messages,
             channel_name=channel,
-            time_period=time_window,
+            time_period=f"{oldest_date} to {newest_date}",
             config=config.get("summary_config", {}),
             template=config.get("prompt_templates", {}).get("default_summary")
         )
@@ -132,12 +132,12 @@ async def run_summarize(
         console.print(Panel(
             md,
             title=f"[bold green]📡 TeleShell Summary: {channel}[/bold green]",
-            subtitle=f"[dim]Analyzed: {len(messages)}/{total_count} messages[/dim]",
+            subtitle=f"[dim]Analyzed: {actual_count} messages ({oldest_date} - {newest_date})[/dim]",
             border_style="green",
             padding=(1, 2)
         ))
         
-        # Update checkpoint with the NEWEST message ID (from the list)
+        # Update checkpoint
         last_msg_id = messages[0]["id"]
         last_msg_date = messages[0]["date"].isoformat()
         config_manager.update_checkpoint(channel, last_msg_id, last_msg_date)
