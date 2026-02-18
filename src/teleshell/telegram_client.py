@@ -28,22 +28,31 @@ class TelegramClientWrapper:
     async def fetch_messages(
         self, 
         channel: str, 
-        limit: Optional[int] = 500, 
+        limit: Optional[int] = 1000, 
         offset_id: int = 0,
         offset_date: Optional[Any] = None
     ) -> List[Dict[str, Any]]:
-        """Fetch messages from a specific Telegram channel."""
+        """
+        Fetch messages from a specific Telegram channel.
+        If offset_date is provided, fetches messages AFTER that date (newer).
+        If offset_id is provided, fetches messages AFTER that ID.
+        """
         messages_data = []
         async with self.client:
-            # Telethon's get_messages fetches messages newer than offset_date 
-            # if we use it as the 'reverse' logic or offset_id.
-            # For simplicity in M1, we fetch up to 'limit' messages.
-            messages = await self.client.get_messages(
-                channel, 
-                limit=limit, 
-                offset_id=offset_id,
-                offset_date=offset_date
-            )
+            kwargs = {
+                "limit": limit,
+            }
+            
+            if offset_id > 0:
+                # min_id ensures we only get messages NEWER than this ID
+                kwargs["min_id"] = offset_id
+            elif offset_date:
+                # offset_date + reverse=True ensures we start at the date and go FORWARD
+                kwargs["offset_date"] = offset_date
+                kwargs["reverse"] = True
+            
+            # Fetch messages from Telegram
+            messages = await self.client.get_messages(channel, **kwargs)
             
             for msg in messages:
                 if isinstance(msg, Message):
@@ -54,6 +63,9 @@ class TelegramClientWrapper:
                         "sender_id": msg.sender_id
                     })
         
+        # We sort by ID descending (newest first) to keep internal logic consistent
+        # across all components (especially checkpointing in main.py).
+        messages_data.sort(key=lambda x: x["id"], reverse=True)
         return messages_data
 
     async def start(self) -> None:
