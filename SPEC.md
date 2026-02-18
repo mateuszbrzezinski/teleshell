@@ -204,17 +204,16 @@ The following tools will be used to enforce code standards:
 This extension focuses on making the CLI more informative and visually appealing.
 
 ### Progress Reporting (Observability)
-The application will provide real-time feedback during execution:
-*   **Connection Status:** "📡 Connecting to Telegram..."
-*   **Context Discovery:** "🔍 Channel @name: Fetching messages from [Date/Time] to [Date/Time]..."
-*   **Data Summary:** "📥 Found {N} messages."
-*   **AI Stage:** "🤖 Generating AI summary using [Model]..."
+The application will provide real-time feedback during execution using a high-contrast color scheme for maximum readability:
+*   **Connection Status:** "📡 Connecting to Telegram..." (Cyan)
+*   **Context Discovery:** "🔍 Channel @name: Fetching messages since [Date/Time]..." (White/Cyan)
+*   **Reliable Counting:** Instead of relying on Telegram's global message count, the app fetches `limit + 1` messages to accurately determine the count within the window and detect if the limit was reached.
+*   **AI Stage:** "🤖 Generating AI summary..." (Yellow)
 
 ### Rich Output Formatting (UX)
 The final output will be structured for better readability:
-*   **Markdown Rendering:** Using the `rich` library to render AI-generated Markdown content (bold, lists, headers) directly in the terminal.
-*   **Headers:** Clear distinction between channel metadata and the summary content.
-*   **Metadata Block:** Displaying channel name, timeframe, and message count.
+*   **Markdown Rendering:** Using the `rich` library to render AI-generated Markdown content (bold, lists, headers) directly in the terminal within a bordered Panel.
+*   **Metadata Block:** Displaying channel name, timeframe, and analyzed message count in the panel header/subtitle.
 *   **Visual Separators:** Using lines (e.g., `━━━━`) to frame the summary.
 *   **Formatting Guidelines:** Instructing the LLM (via prompt) to use bullet points for key highlights when appropriate.
 
