@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from telethon import TelegramClient
 from telethon.tl.types import Message
 
@@ -24,24 +24,6 @@ class TelegramClientWrapper:
         session_path = base_dir / f"{session_name}.session"
         
         self.client = TelegramClient(str(session_path), api_id, api_hash)
-
-    async def get_message_count(
-        self,
-        channel: str,
-        offset_id: int = 0,
-        offset_date: Optional[Any] = None
-    ) -> int:
-        """Get the total count of messages in a range without fetching them."""
-        async with self.client:
-            kwargs = {"limit": 0}
-            if offset_id > 0:
-                kwargs["min_id"] = offset_id
-            elif offset_date:
-                kwargs["offset_date"] = offset_date
-                kwargs["reverse"] = True
-            
-            result = await self.client.get_messages(channel, **kwargs)
-            return getattr(result, "total", 0)
 
     async def fetch_messages(
         self, 
