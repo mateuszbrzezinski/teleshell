@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-02-19
+
+### Added
+- **Interactive Management:** New `tshell channels manage` command with a full TUI.
+- **Telegram Folders:** Support for grouping channels by your native Telegram folders.
+- **Fuzzy Search:** Fast, real-time filtering of subscribed channels during selection.
+- **TUI Controls:** Checkbox interface using `InquirerPy` (Space to toggle, Enter to save).
+- **Sub-commands:** Added `tshell channels list`, `add`, and `remove` for fine-grained control.
+
+### Changed
+- Refactored `TelegramClientWrapper` to support dialog and filter discovery.
+- Updated `pyproject.toml` with `inquirerpy` dependency.
+
+### Fixed
+- `TypeError` in channel management TUI when sorting folders containing `None` (unsorted) IDs.
+
 ## [0.1.0] - 2026-02-19
 
 ### Added

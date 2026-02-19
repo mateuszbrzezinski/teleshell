@@ -266,16 +266,18 @@ def manage_channels(ctx: click.Context) -> None:
         # Group by folder
         grouped: Dict[int, List[Dict[str, Any]]] = {}
         for d in all_dialogs:
-            f_id = d["folder_id"]
+            # Handle None as folder ID 0 (Main/Unsorted)
+            f_id = d["folder_id"] if d["folder_id"] is not None else 0
             if f_id not in grouped:
                 grouped[f_id] = []
             grouped[f_id].append(d)
 
         choices = []
         # Process folders in order (Main first, then others)
-        sorted_folder_ids = sorted(grouped.keys())
+        # Using a custom sort key to ensure 0 is always first
+        sorted_folder_ids = sorted(grouped.keys(), key=lambda x: (x != 0, x))
         for f_id in sorted_folder_ids:
-            folder_name = folders.get(f_id, f"Folder {f_id}")
+            folder_name = folders.get(f_id, "Main" if f_id == 0 else f"Folder {f_id}")
             choices.append(Separator(f"--- {folder_name} ---"))
 
             # Sort channels by title within folder
