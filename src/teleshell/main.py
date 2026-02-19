@@ -2,13 +2,18 @@ import click
 import asyncio
 import os
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from dotenv import load_dotenv
 
 # Rich UI
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
+
+# Interactive TUI
+from InquirerPy import inquirer
+from InquirerPy.base.control import Choice
+from InquirerPy.separator import Separator
 
 from teleshell.config import ConfigManager
 from teleshell.telegram_client import TelegramClientWrapper
@@ -171,6 +176,153 @@ def cli(ctx: click.Context) -> None:
     """TeleShell: AI-driven Telegram automation and intelligence CLI tool."""
     ctx.ensure_object(dict)
     ctx.obj["config_manager"] = ConfigManager()
+
+
+@cli.group()
+def channels() -> None:
+    """Manage tracked Telegram channels."""
+    pass
+
+
+@channels.command(name="list")
+@click.pass_context
+def list_channels(ctx: click.Context) -> None:
+    """List currently tracked channels."""
+    config_manager = ctx.obj["config_manager"]
+    config = config_manager.load()
+    tracked = config.get("default_channels", [])
+
+    if not tracked:
+        console.print("[yellow]No channels currently tracked.[/yellow]")
+        return
+
+    console.print("[bold blue]Tracked Channels:[/bold blue]")
+    for channel in tracked:
+        console.print(f" - {channel}")
+
+
+@channels.command(name="add")
+@click.argument("handle")
+@click.pass_context
+def add_channel(ctx: click.Context, handle: str) -> None:
+    """Add a channel to the tracked list."""
+    config_manager = ctx.obj["config_manager"]
+    config = config_manager.load()
+    tracked = config.get("default_channels", [])
+
+    if handle not in tracked:
+        tracked.append(handle)
+        config["default_channels"] = tracked
+        config_manager.save(config)
+        console.print(f"[green]Added {handle} to tracking.[/green]")
+    else:
+        console.print(f"[yellow]{handle} is already tracked.[/yellow]")
+
+
+@channels.command(name="remove")
+@click.argument("handle")
+@click.pass_context
+def remove_channel(ctx: click.Context, handle: str) -> None:
+    """Remove a channel from the tracked list."""
+    config_manager = ctx.obj["config_manager"]
+    config = config_manager.load()
+    tracked = config.get("default_channels", [])
+
+    if handle in tracked:
+        tracked.remove(handle)
+        config["default_channels"] = tracked
+        config_manager.save(config)
+        console.print(f"[green]Removed {handle} from tracking.[/green]")
+    else:
+        console.print(f"[yellow]{handle} is not tracked.[/yellow]")
+
+
+@channels.command(name="manage")
+@click.pass_context
+def manage_channels(ctx: click.Context) -> None:
+    """Interactively manage tracked channels using a TUI."""
+    load_dotenv()
+    api_id = int(os.getenv("TELEGRAM_API_ID", 0))
+    api_hash = os.getenv("TELEGRAM_API_HASH", "")
+
+    if not api_id or not api_hash:
+        console.print("[bold red]Error:[/bold red] TELEGRAM_API_ID/HASH missing in .env")
+        return
+
+    config_manager = ctx.obj["config_manager"]
+    config = config_manager.load()
+    tracked = config.get("default_channels", [])
+
+    tg_client = TelegramClientWrapper(api_id, api_hash)
+
+    async def run_manage():
+        with console.status(
+            "[bold cyan]📡 Fetching your Telegram channels and folders...[/bold cyan]"
+        ):
+            await tg_client.start()
+            all_dialogs = await tg_client.fetch_dialogs()
+            folders = await tg_client.fetch_folders()
+
+        # Group by folder
+        grouped: Dict[int, List[Dict[str, Any]]] = {}
+        for d in all_dialogs:
+            f_id = d["folder_id"]
+            if f_id not in grouped:
+                grouped[f_id] = []
+            grouped[f_id].append(d)
+
+        choices = []
+        # Process folders in order (Main first, then others)
+        sorted_folder_ids = sorted(grouped.keys())
+        for f_id in sorted_folder_ids:
+            folder_name = folders.get(f_id, f"Folder {f_id}")
+            choices.append(Separator(f"--- {folder_name} ---"))
+
+            # Sort channels by title within folder
+            folder_dialogs = sorted(grouped[f_id], key=lambda x: x["title"])
+            for d in folder_dialogs:
+                # Value will be the handle if available, otherwise ID
+                value = d["handle"] if d["handle"] else str(d["id"])
+                # Handle can be @username or username
+                handle_display = (
+                    f" (@{d['handle']})" if d["handle"] else f" (ID: {d['id']})"
+                )
+
+                # Check if currently tracked
+                is_enabled = (
+                    value in tracked
+                    or f"@{value}" in tracked
+                    or value.lstrip("@") in tracked
+                )
+
+                choices.append(
+                    Choice(
+                        value=(
+                            f"@{value}"
+                            if d["handle"] and not value.startswith("@")
+                            else value
+                        ),
+                        name=f"{d['title']}{handle_display}",
+                        enabled=is_enabled,
+                    )
+                )
+
+        selection = inquirer.fuzzy(
+            message="Select channels to track (Space to toggle, Enter to confirm):",
+            choices=choices,
+            multiselect=True,
+            transformer=lambda result: f"{len(result)} channels selected",
+            info=True,
+        ).execute()
+
+        if selection is not None:
+            config["default_channels"] = selection
+            config_manager.save(config)
+            console.print(
+                f"[bold green]✅ Success![/bold green] Updated tracking list with {len(selection)} channels."
+            )
+
+    asyncio.run(run_manage())
 
 
 @cli.command()

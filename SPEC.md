@@ -212,5 +212,25 @@ To provide transparency and monitor performance, the application will report AI 
 *   **Visual Separators:** Using lines (e.g., `━━━━`) to frame the summary.
 *   **Formatting Guidelines:** Instructing the LLM (via prompt) to use bullet points for key highlights when appropriate.
 
+## 14. Milestone 1.5: Interactive Channel Management
+This milestone introduces a high-UX way to discover and manage tracked channels directly from the user's Telegram account using an interactive Terminal User Interface (TUI).
+
+### `tshell channels` Command Group
+A new command group for managing the list of tracked channels in `config.yaml`:
+*   **`list`**: Non-interactive listing of currently tracked channels.
+*   **`add <handle>`**: Manually add a channel by its handle or ID.
+*   **`remove <handle>`**: Manually remove a channel from tracking.
+*   **`manage` (Interactive TUI)**:
+    *   Fetches all channels and megagroups the user is subscribed to.
+    *   Groups channels by their **Telegram Folders** (Dialog Filters).
+    *   Provides a **Fuzzy Search** interface for quick filtering.
+    *   Allows **Multi-selection** (Space to toggle, Enter to confirm).
+    *   Automatically synchronizes the final selection with `default_channels` in `config.yaml`.
+
+### Implementation Details
+*   **Library:** `InquirerPy` for the interactive fuzzy checkbox selection.
+*   **API:** `client.get_dialogs()` and `functions.messages.GetDialogFiltersRequest()` from Telethon.
+*   **Configuration:** The result of the `manage` TUI will overwrite the `default_channels` list in the user's configuration.
+
 ---
 *Status: Draft - Awaiting Stakeholder Review.*
