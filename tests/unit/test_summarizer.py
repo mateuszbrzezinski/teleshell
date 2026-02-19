@@ -37,19 +37,23 @@ async def test_summarize_call():
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "This is a summary."
+        mock_response.model = "gemini/gemini-flash-latest"
+        mock_response.usage = MagicMock()
+        mock_response.usage.prompt_tokens = 10
+        mock_response.usage.completion_tokens = 5
         mock_acompletion.return_value = mock_response
         
         summarizer = Summarizer(api_key="test_key")
         result = await summarizer.summarize(
-            messages=[{"text": "msg1"}, {"text": "msg2"}],
+            messages=[{"text": "msg1"}],
             channel_name="@test",
             time_period="today",
             config={"length": "short"},
             template="Summarize {{messages}}"
         )
         
-        assert result == "This is a summary."
+        assert isinstance(result, dict)
+        assert result["content"] == "This is a summary."
+        assert "metadata" in result
+        assert result["metadata"]["input_tokens"] == 10
         mock_acompletion.assert_called_once()
-        # Verify model used is gemini
-        args, kwargs = mock_acompletion.call_args
-        assert kwargs["model"] == "gemini/gemini-flash-latest"

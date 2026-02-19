@@ -1,5 +1,6 @@
 import os
 import litellm
+import time
 from typing import List, Dict, Any, Union
 
 class Summarizer:
@@ -49,10 +50,13 @@ class Summarizer:
         time_period: str, 
         config: Dict[str, Any],
         template: str
-    ) -> str:
-        """Generate a summary for the given messages."""
+    ) -> Dict[str, Any]:
+        """Generate a summary for the given messages and return with metadata."""
         if not messages:
-            return "No messages to summarize for this period."
+            return {
+                "content": "No messages to summarize for this period.",
+                "metadata": {}
+            }
 
         # Prepare messages text
         formatted_messages = "\n".join([
@@ -69,9 +73,24 @@ class Summarizer:
             messages=formatted_messages
         )
 
+        start_time = time.time()
         response = await litellm.acompletion(
             model=self.model,
             messages=[{"role": "user", "content": prompt}]
         )
+        end_time = time.time()
 
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        usage = getattr(response, "usage", None)
+        
+        metadata = {
+            "model": response.model,
+            "latency": round(end_time - start_time, 2),
+            "input_tokens": getattr(usage, "prompt_tokens", 0) if usage else 0,
+            "output_tokens": getattr(usage, "completion_tokens", 0) if usage else 0,
+        }
+
+        return {
+            "content": content,
+            "metadata": metadata
+        }

@@ -12,3 +12,4 @@ __pycache__/
 *.session
 *.session-journal
 config.yaml
+.gemini/

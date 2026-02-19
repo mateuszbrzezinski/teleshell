@@ -116,7 +116,7 @@ async def run_summarize(
 
         console.print(f"[bold yellow]🤖 Generating AI summary using {summarizer.model}...[/bold yellow]")
         
-        summary_text = await summarizer.summarize(
+        result = await summarizer.summarize(
             messages=messages,
             channel_name=channel,
             time_period=f"{oldest_date} to {newest_date}",
@@ -124,13 +124,24 @@ async def run_summarize(
             template=config.get("prompt_templates", {}).get("default_summary")
         )
         
+        summary_text = result["content"]
+        meta = result["metadata"]
+        
         # Rich Markdown Rendering
         md = Markdown(summary_text)
         console.print("\n")
+        
+        subtitle = (
+            f"[dim]Analyzed: {actual_count} msgs | "
+            f"Model: {meta.get('model', 'N/A')} | "
+            f"Tokens: {meta.get('input_tokens', 0)}in/{meta.get('output_tokens', 0)}out | "
+            f"Time: {meta.get('latency', 0)}s[/dim]"
+        )
+
         console.print(Panel(
             md,
             title=f"[bold green]📡 TeleShell Summary: {channel}[/bold green]",
-            subtitle=f"[dim]Analyzed: {actual_count} messages ({oldest_date} - {newest_date})[/dim]",
+            subtitle=subtitle,
             border_style="green",
             padding=(1, 2)
         ))

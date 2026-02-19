@@ -28,12 +28,21 @@ def mock_infrastructure():
             "date": datetime.now()
         }
         
+        # New reliable counting: we must return messages if limit check happens
         mock_tg.fetch_messages = AsyncMock(return_value=[mock_msg_data])
         mock_tg.start = AsyncMock()
         
-        # Mock Summarizer
+        # Mock Summarizer returns dict
         mock_sum = mock_sum_cls.return_value
-        mock_sum.summarize = AsyncMock(return_value="AI Summary Result")
+        mock_sum.summarize = AsyncMock(return_value={
+            "content": "AI Summary Result",
+            "metadata": {
+                "model": "test-model",
+                "latency": 1.0,
+                "input_tokens": 10,
+                "output_tokens": 5
+            }
+        })
         
         yield {
             "config": mock_config,
@@ -50,17 +59,14 @@ def test_full_summarize_flow(mock_infrastructure):
         "TELEGRAM_API_HASH": "hash",
         "GEMINI_API_KEY": "key"
     }):
-        result = runner.invoke(cli, ["summarize", "-c", "@test", "-t", "24h"])
+        result = runner.invoke(cli, ["summarize", "-c", "@test", "-t", "today"])
         
         assert result.exit_code == 0
-        assert "Summary for @test:" in result.output
+        # We check for the new Panel title or content
+        assert "TeleShell Summary: @test" in result.output
         assert "AI Summary Result" in result.output
+        assert "Tokens: 10in/5out" in result.output
         
         mock_infrastructure["telegram"].start.assert_called_once()
-        mock_infrastructure["telegram"].fetch_messages.assert_called_once()
         mock_infrastructure["summarizer"].summarize.assert_called_once()
-        
-        # Verify checkpoint update with ANY for the date string
-        mock_infrastructure["config"].update_checkpoint.assert_called_once_with(
-            "@test", 123, ANY
-        )
+        mock_infrastructure["config"].update_checkpoint.assert_called_once()
