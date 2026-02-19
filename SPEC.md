@@ -201,19 +201,14 @@ The following tools will be used to enforce code standards:
 *   ... (existing criteria) ...
 
 ## 12. Milestone 1 Extension: Enhanced UX & Observability
-This extension focuses on making the CLI more informative and visually appealing.
+... (existing content) ...
 
-### Progress Reporting (Observability)
-The application will provide real-time feedback during execution using a high-contrast color scheme for maximum readability:
-*   **Connection Status:** "📡 Connecting to Telegram..." (Cyan)
-*   **Context Discovery:** "🔍 Channel @name: Fetching messages since [Date/Time]..." (White/Cyan)
-*   **Reliable Counting:** Instead of relying on Telegram's global message count, the app fetches `limit + 1` messages to accurately determine the count within the window and detect if the limit was reached.
-*   **AI Stage:** "🤖 Generating AI summary..." (Yellow)
-
-### Rich Output Formatting (UX)
-The final output will be structured for better readability:
-*   **Markdown Rendering:** Using the `rich` library to render AI-generated Markdown content (bold, lists, headers) directly in the terminal within a bordered Panel.
-*   **Metadata Block:** Displaying channel name, timeframe, and analyzed message count in the panel header/subtitle.
+## 13. AI Performance & Usage Reporting
+To provide transparency and monitor performance, the application will report AI metrics for each summarization:
+*   **Token Usage:** Displaying the number of tokens used for the prompt (input) and the generated summary (output).
+*   **Processing Time:** Measuring and displaying the total time (in seconds) taken by the LLM to generate the response.
+*   **Model Info:** Confirming the exact model name used for the generation.
+*   **Display Format:** These metrics will be displayed as a subtle footer within the Rich summary panel.
 *   **Visual Separators:** Using lines (e.g., `━━━━`) to frame the summary.
 *   **Formatting Guidelines:** Instructing the LLM (via prompt) to use bullet points for key highlights when appropriate.
 
