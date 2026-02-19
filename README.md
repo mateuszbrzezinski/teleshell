@@ -4,7 +4,7 @@
 
 [![TeleShell CI](https://github.com/mateuszbrzezinski/teleshell/actions/workflows/ci.yml/badge.svg)](https://github.com/mateuszbrzezinski/teleshell/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
 ---
 
@@ -93,7 +93,9 @@ Contributions are welcome! Please read our `SPEC.md` to understand our developme
 
 ## 📜 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** License. This means you are free to share and adapt the material, but you **must give appropriate credit** and you **may not use the material for commercial purposes**.
+
+See [LICENSE](LICENSE) for more information.
 
 ---
 *Built with ❤️ by [Mateusz Brzeziński](https://github.com/mateuszbrzezinski)*
