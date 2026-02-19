@@ -22,7 +22,8 @@ dev = [
     "black>=26.1.0",
     "ruff>=0.15.0",
     "mypy>=1.19.0",
-    "respx>=0.22.0"
+    "respx>=0.22.0",
+    "types-pyyaml>=6.0.12.20241230"
 ]
 
 [project.scripts]
