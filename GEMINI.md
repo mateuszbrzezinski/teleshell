@@ -4,6 +4,7 @@
 *   **Spec-Driven Development (SDD):** All new requirements or changes MUST first be documented and approved in `SPEC.md`. Never write code without an approved entry in `SPEC.md`. The spec is the single source of truth.
 *   **Test-Driven Development (TDD):** Write failing tests (unit/integration) before any functional code. Aim for high coverage and reliability.
 *   **AI-Driven/Spec-Driven:** Use advanced reasoning to ensure code strictly matches the specification.
+*   **VCV Workflow:** Always follow the Verify-Change-Verify pattern for file modifications: 1. Read 'Before', 2. Change via tools, 3. Read 'After' to confirm persistence. NEVER use shell hacks like 'printf' to write code.
 
 ## 2. Tools & External Resources
 *   **MCP Context7 (context7.com):** **Primary Resource.** Use the `context7` MCP server as the first choice for retrieving high-quality LLM patterns, prompt engineering documentation, and AI best practices. Only fallback to web search if the MCP resource is unavailable.
@@ -14,6 +15,7 @@
 *   **Language:** Python 3.10+ with strict type hinting (`mypy`).
 *   **Dependency Management:** `uv` is the mandatory tool for environment isolation and package management. Always use `uv sync` and `uv run`.
 *   **Git & Commits:** Use **Conventional Commits** (e.g., `feat:`, `fix:`, `chore:`, `docs:`). The developer has the autonomy to perform commits after logical milestones, successful implementations, or passing tests without waiting for stakeholder's explicit request.
+*   **Release Management:** Adhere to Semantic Versioning (SemVer). Maintain `CHANGELOG.md` and create git tags in `vX.Y.Z` format for every release. Update version in `pyproject.toml` and `CHANGELOG.md` simultaneously.
 *   **Linting/Formatting:** `Ruff` and `Black` are mandatory. Run them before every commit.
 *   **Modular Design:** Keep Telegram, AI, and CLI logic strictly decoupled.
 *   **Security:** Never log or commit `.env` or `.session` files.
