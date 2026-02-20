@@ -45,8 +45,9 @@ Configuration will be managed via `.env` file for sensitive credentials and `con
 ### `config.yaml`
 **Location:** `~/.teleshell/config.yaml` (If not found, it can be created interactively or by copying `config.yaml.example` from the project root).
 **Purpose:** Stores user preferences and state.
-*   `default_channels`: A list of channel usernames/IDs to be used when `--channels` option is not provided.
-*   `summary_config`:
+*   **`default_channels`**: A list of channel usernames/IDs to be used when `--channels` option is not provided.
+*   **`channel_titles`**: A dictionary mapping channel IDs/handles to human-readable titles (e.g., `My Favorite Channel`). These are used for display in the CLI and summaries.
+*   **`summary_config`**:
     *   `length`: Configurable summary length. This will influence the prompt sent to the LLM. Default to `medium`.
         *   **`short`**: Aim for **1-3 concise sentences**. Emphasizes brevity, captures core message.
         *   **`medium`**: Aim for **4-7 sentences**. Provides a balanced overview, covering main points and some supporting details.
@@ -100,7 +101,9 @@ Configuration will be managed via `.env` file for sensitive credentials and `con
         *   `{{channel_name}}`: Injected with the name of the channel being summarized.
         *   `{{time_period}}`: Injected with a descriptive string of the time period.
     5.  Call LiteLLM to interface with Google Gemini API for summarization, using the constructed prompt.
-    6.  Receive and format the summary.
+    6.  **Reliability & Retries:** Built-in support for **up to 5 retries** using exponential backoff to handle temporary service unavailability (e.g., 503 Overloaded) or rate limits (429).
+    7.  **Error Handling:** In the event of persistent AI failure, the application will report the error cleanly and **skip the checkpoint update** for that channel, ensuring no messages are missed on the next run.
+    8.  Receive and format the summary.
 *   **Prompt Engineering:**
     *   Initial focus on a robust and effective summarization prompt, designed to extract key topics and highlights.
     *   Prompts are configurable via `config.yaml`, allowing users to fine-tune the summarization behavior without code changes.
@@ -217,15 +220,15 @@ This milestone introduces a high-UX way to discover and manage tracked channels 
 
 ### `tshell channels` Command Group
 A new command group for managing the list of tracked channels in `config.yaml`:
-*   **`list`**: Non-interactive listing of currently tracked channels.
-*   **`add <handle>`**: Manually add a channel by its handle or ID.
-*   **`remove <handle>`**: Manually remove a channel from tracking.
+*   **`list`**: Non-interactive listing of currently tracked channels, displaying human-readable titles where available.
+*   **`add <handle> [--title <TITLE>]`**: Manually add a channel by its handle or ID, with an optional human-readable title.
+*   **`remove <handle>`**: Manually remove a channel and its title from tracking.
 *   **`manage` (Interactive TUI)**:
     *   Fetches all channels and megagroups the user is subscribed to.
     *   Groups channels by their **Telegram Folders** (Dialog Filters).
     *   Provides a **Fuzzy Search** interface for quick filtering.
     *   Allows **Multi-selection** (Space to toggle, Enter to confirm).
-    *   Automatically synchronizes the final selection with `default_channels` in `config.yaml`.
+    *   Automatically synchronizes the final selection and **channel titles** with `config.yaml`.
 
 ### Implementation Details
 *   **Library:** `InquirerPy` for the interactive fuzzy checkbox selection.
