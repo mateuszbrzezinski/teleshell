@@ -50,3 +50,17 @@ def test_checkpoint_management(tmp_path):
 
     assert config["checkpoints"]["@test"]["last_message_id"] == 123
     assert config["checkpoints"]["@test"]["last_message_date"] == "2024-02-18T10:30:00Z"
+
+
+def test_save_with_argument(tmp_path):
+    """Test saving configuration by passing a dictionary to save()."""
+    config_dir = tmp_path / ".teleshell"
+    config_dir.mkdir()
+    manager = ConfigManager(config_dir=str(config_dir))
+    
+    new_data = {"default_channels": ["@passed_arg"]}
+    manager.save(new_data)
+    
+    # Reload to verify
+    loaded = manager.load()
+    assert loaded["default_channels"] == ["@passed_arg"]

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from telethon import TelegramClient, functions
 from telethon.tl.types import Message, DialogFilter
 
@@ -54,7 +54,8 @@ class TelegramClientWrapper:
             try:
                 filters = await self.client(functions.messages.GetDialogFiltersRequest())
                 for f in filters:
-                    if isinstance(f, DialogFilter):
+                    # Use attribute checking for robustness and testability
+                    if hasattr(f, "id") and hasattr(f, "title"):
                         # Use title for the folder, id is unique per user
                         folders[f.id] = f.title
             except Exception:
@@ -64,7 +65,7 @@ class TelegramClientWrapper:
 
     async def fetch_messages(
         self,
-        channel: str,
+        channel: Union[str, int],
         limit: Optional[int] = 1000,
         offset_id: int = 0,
         offset_date: Optional[Any] = None,
@@ -74,6 +75,16 @@ class TelegramClientWrapper:
         If offset_date is provided, fetches messages AFTER that date (newer).
         If offset_id is provided, fetches messages AFTER that ID.
         """
+        # Resolve numeric IDs passed as strings
+        target = channel
+        if isinstance(channel, str):
+            # Check for digits or negative numbers (IDs)
+            if channel.isdigit() or (channel.startswith("-") and channel[1:].isdigit()):
+                try:
+                    target = int(channel)
+                except ValueError:
+                    pass
+
         messages_data = []
         async with self.client:
             kwargs = {
@@ -86,7 +97,17 @@ class TelegramClientWrapper:
                 kwargs["offset_date"] = offset_date
                 kwargs["reverse"] = True
 
-            messages = await self.client.get_messages(channel, **kwargs)
+            try:
+                messages = await self.client.get_messages(target, **kwargs)
+            except ValueError:
+                # If target is ID and not found, try to resolve entity first
+                # This helps with small groups or old cached IDs
+                try:
+                    entity = await self.client.get_input_entity(target)
+                    messages = await self.client.get_messages(entity, **kwargs)
+                except Exception:
+                    # Re-raise original if resolution fails
+                    raise
 
             for msg in messages:
                 if isinstance(msg, Message):

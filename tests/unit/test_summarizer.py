@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
-from teleshell.summarizer import Summarizer
+from teleshell.summarizer import Summarizer, SummarizationError
+import litellm.exceptions
 
 
 def test_prompt_construction():
@@ -60,3 +61,23 @@ async def test_summarize_call():
         assert "metadata" in result
         assert result["metadata"]["input_tokens"] == 10
         mock_acompletion.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_summarize_service_unavailable():
+    """Test handling of ServiceUnavailableError (503)."""
+    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        mock_acompletion.side_effect = litellm.exceptions.ServiceUnavailableError(
+            message="Overloaded", model="gemini", llm_provider="google"
+        )
+
+        summarizer = Summarizer(api_key="test_key")
+        with pytest.raises(SummarizationError) as exc_info:
+            await summarizer.summarize(
+                messages=[{"text": "msg1"}],
+                channel_name="@test",
+                time_period="today",
+                config={"length": "short"},
+                template="Summarize {{messages}}",
+            )
+        assert "overloaded" in str(exc_info.value)

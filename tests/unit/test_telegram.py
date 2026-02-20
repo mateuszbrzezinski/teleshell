@@ -40,8 +40,6 @@ async def test_fetch_messages_success():
         messages = await wrapper.fetch_messages("@test_channel", limit=10)
 
         assert len(messages) == 1
-        # In the new logic, we check min_id or offset_date in kwargs
-        # but let's check that it was called with the basic limit at least
         args, kwargs = mock_client_instance.get_messages.call_args
         assert args[0] == "@test_channel"
         assert kwargs["limit"] == 10
@@ -53,7 +51,8 @@ async def test_fetch_dialogs_success():
     with patch("teleshell.telegram_client.TelegramClient") as mock_client_class:
         mock_client_instance = mock_client_class.return_value
         mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-        
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+
         # Mock a dialog with a channel entity
         mock_dialog = MagicMock()
         mock_dialog.name = "Test Channel"
@@ -63,12 +62,12 @@ async def test_fetch_dialogs_success():
         mock_dialog.entity = MagicMock()
         mock_dialog.entity.username = "test_handle"
         mock_dialog.dialog.folder_id = 1
-        
+
         mock_client_instance.get_dialogs = AsyncMock(return_value=[mock_dialog])
-        
+
         wrapper = TelegramClientWrapper(123, "hash")
         dialogs = await wrapper.fetch_dialogs()
-        
+
         assert len(dialogs) == 1
         assert dialogs[0]["title"] == "Test Channel"
         assert dialogs[0]["handle"] == "test_handle"
@@ -81,7 +80,8 @@ async def test_fetch_dialogs_none_folder():
     with patch("teleshell.telegram_client.TelegramClient") as mock_client_class:
         mock_client_instance = mock_client_class.return_value
         mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-        
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+
         mock_dialog = MagicMock()
         mock_dialog.name = "No Folder Channel"
         mock_dialog.id = 222
@@ -89,12 +89,12 @@ async def test_fetch_dialogs_none_folder():
         mock_dialog.is_group = False
         mock_dialog.entity = MagicMock()
         mock_dialog.dialog.folder_id = None
-        
+
         mock_client_instance.get_dialogs = AsyncMock(return_value=[mock_dialog])
-        
+
         wrapper = TelegramClientWrapper(123, "hash")
         dialogs = await wrapper.fetch_dialogs()
-        
+
         assert dialogs[0]["folder_id"] is None
 
 
@@ -104,17 +104,48 @@ async def test_fetch_folders_success():
     with patch("teleshell.telegram_client.TelegramClient") as mock_client_class:
         mock_client_instance = mock_client_class.return_value
         mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-        
-        from telethon.tl.types import DialogFilter
-        mock_filter = MagicMock(spec=DialogFilter)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+
+        # Mock a folder-like object
+        mock_filter = MagicMock()
         mock_filter.id = 2
         mock_filter.title = "Work"
-        
-        # client(...) call for GetDialogFiltersRequest
-        mock_client_instance.return_value = [mock_filter]
-        
+
+        # Correct way to mock the client being called as a function (await client(...))
+        mock_client_instance.side_effect = AsyncMock(return_value=[mock_filter])
+
         wrapper = TelegramClientWrapper(123, "hash")
         folders = await wrapper.fetch_folders()
-        
+
         assert folders[0] == "Main"
         assert folders[2] == "Work"
+
+
+@pytest.mark.asyncio
+async def test_fetch_messages_numeric_id_string():
+    """Test that numeric IDs passed as strings are resolved to integers."""
+    with patch("teleshell.telegram_client.TelegramClient") as mock_client_class:
+        mock_client_instance = mock_client_class.return_value
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+        mock_client_instance.get_messages = AsyncMock(return_value=[])
+
+        wrapper = TelegramClientWrapper(123, "hash")
+
+        # Test negative ID string
+        await wrapper.fetch_messages("-4750097632", limit=10)
+        args, _ = mock_client_instance.get_messages.call_args
+        assert args[0] == -4750097632
+        assert isinstance(args[0], int)
+
+        # Test positive ID string
+        await wrapper.fetch_messages("123456", limit=10)
+        args, _ = mock_client_instance.get_messages.call_args
+        assert args[0] == 123456
+        assert isinstance(args[0], int)
+
+        # Test regular handle string remains string
+        await wrapper.fetch_messages("@handle", limit=10)
+        args, _ = mock_client_instance.get_messages.call_args
+        assert args[0] == "@handle"
+        assert isinstance(args[0], str)

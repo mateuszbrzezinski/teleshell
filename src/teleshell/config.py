@@ -14,6 +14,7 @@ DEFAULT_CONFIG = {
         )
     },
     "checkpoints": {},
+    "channel_titles": {},
 }
 
 
@@ -41,8 +42,10 @@ class ConfigManager:
                 self._config = self._merge_configs(DEFAULT_CONFIG, user_config)
         return self._config
 
-    def save(self) -> None:
-        """Save current configuration to disk."""
+    def save(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """Save configuration to disk."""
+        if config is not None:
+            self._config = config
         with open(self.config_path, "w") as f:
             yaml.dump(self._config, f, default_flow_style=False)
 

@@ -18,6 +18,7 @@ def mock_infrastructure():
         mock_config = mock_config_cls.return_value
         mock_config.load.return_value = {
             "default_channels": ["@default"],
+            "channel_titles": {"@test": "Test Title"},
             "summary_config": {"length": "medium"},
             "prompt_templates": {"default_summary": "Template {{messages}}"},
             "checkpoints": {},
@@ -68,7 +69,7 @@ def test_full_summarize_flow(mock_infrastructure):
 
         assert result.exit_code == 0
         # We check for the new Panel title or content
-        assert "TeleShell Summary: @test" in result.output
+        assert "TeleShell Summary: Test Title" in result.output
         assert "AI Summary Result" in result.output
         assert "Tokens: 10in/5out" in result.output
 

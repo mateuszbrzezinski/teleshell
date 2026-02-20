@@ -1,7 +1,20 @@
 import os
 import litellm
+import litellm.exceptions
 import time
+import logging
+import asyncio
+import random
 from typing import List, Dict, Any, Union
+
+# Suppress litellm logging unless requested
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+
+
+class SummarizationError(Exception):
+    """Custom exception for errors during the summarization process."""
+
+    pass
 
 
 class Summarizer:
@@ -77,9 +90,23 @@ class Summarizer:
         )
 
         start_time = time.time()
-        response = await litellm.acompletion(
-            model=self.model, messages=[{"role": "user", "content": prompt}]
-        )
+        try:
+            response = await litellm.acompletion(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                num_retries=5,
+            )
+        except litellm.exceptions.ServiceUnavailableError as e:
+            raise SummarizationError(
+                "The AI service is currently overloaded even after retries. Please try again in a few minutes."
+            ) from e
+        except litellm.exceptions.RateLimitError as e:
+            raise SummarizationError(
+                "Rate limit exceeded. Please wait before trying again."
+            ) from e
+        except Exception as e:
+            raise SummarizationError(f"AI Summarization failed: {str(e)}") from e
+            
         end_time = time.time()
 
         content = response.choices[0].message.content

@@ -17,7 +17,7 @@ from InquirerPy.separator import Separator
 
 from teleshell.config import ConfigManager
 from teleshell.telegram_client import TelegramClientWrapper
-from teleshell.summarizer import Summarizer
+from teleshell.summarizer import Summarizer, SummarizationError
 
 console = Console()
 
@@ -63,6 +63,7 @@ async def run_summarize(
 
     config = config_manager.load()
     limit = 1000
+    titles = config.get("channel_titles", {})
 
     console.print("[bold cyan]📡 Connecting to Telegram...[/bold cyan]")
     tg_client = TelegramClientWrapper(api_id, api_hash)
@@ -71,6 +72,7 @@ async def run_summarize(
     await tg_client.start()
 
     for channel in channels:
+        title = titles.get(channel, channel)
         offset_date = None
         offset_id = 0
         since_label = ""
@@ -82,7 +84,7 @@ async def run_summarize(
                 since_label = f"last run (ID: {offset_id})"
             else:
                 console.print(
-                    f"[bold yellow]⚠️ No checkpoint for {channel}.[/bold yellow] Please specify a time window (e.g., -t 24h)."
+                    f"[bold yellow]⚠️ No checkpoint for {title}.[/bold yellow] Please specify a time window (e.g., -t 24h)."
                 )
                 continue
         else:
@@ -95,7 +97,7 @@ async def run_summarize(
             since_label = offset_date.strftime("%Y-%m-%d %H:%M")
 
         console.print(
-            f"[bold white]🔍 Channel {channel}:[/bold white] Fetching messages since [cyan]{since_label}[/cyan] (Limit: {limit})..."
+            f"[bold white]🔍 Channel {title}:[/bold white] Fetching messages since [cyan]{since_label}[/cyan] (Limit: {limit})..."
         )
 
         # Fetch limit + 1
@@ -104,7 +106,7 @@ async def run_summarize(
         )
 
         if not messages:
-            console.print(f"[dim]ℹ️ No new messages found for {channel}.[/dim]")
+            console.print(f"[dim]ℹ️ No new messages found for {title}.[/dim]")
             continue
 
         actual_count = len(messages)
@@ -131,13 +133,17 @@ async def run_summarize(
             f"[bold yellow]🤖 Generating AI summary using {summarizer.model}...[/bold yellow]"
         )
 
-        result = await summarizer.summarize(
-            messages=messages,
-            channel_name=channel,
-            time_period=f"{oldest_date} to {newest_date}",
-            config=config.get("summary_config", {}),
-            template=config.get("prompt_templates", {}).get("default_summary"),
-        )
+        try:
+            result = await summarizer.summarize(
+                messages=messages,
+                channel_name=title,
+                time_period=f"{oldest_date} to {newest_date}",
+                config=config.get("summary_config", {}),
+                template=config.get("prompt_templates", {}).get("default_summary"),
+            )
+        except SummarizationError as e:
+            console.print(f"[bold red]❌ Summarization failed for {title}:[/bold red] {str(e)}")
+            continue
 
         summary_text = result["content"]
         meta = result["metadata"]
@@ -156,7 +162,7 @@ async def run_summarize(
         console.print(
             Panel(
                 md,
-                title=f"[bold green]📡 TeleShell Summary: {channel}[/bold green]",
+                title=f"[bold green]📡 TeleShell Summary: {title}[/bold green]",
                 subtitle=subtitle,
                 border_style="green",
                 padding=(1, 2),
@@ -191,6 +197,7 @@ def list_channels(ctx: click.Context) -> None:
     config_manager = ctx.obj["config_manager"]
     config = config_manager.load()
     tracked = config.get("default_channels", [])
+    titles = config.get("channel_titles", {})
 
     if not tracked:
         console.print("[yellow]No channels currently tracked.[/yellow]")
@@ -198,13 +205,18 @@ def list_channels(ctx: click.Context) -> None:
 
     console.print("[bold blue]Tracked Channels:[/bold blue]")
     for channel in tracked:
-        console.print(f" - {channel}")
+        title = titles.get(channel)
+        if title:
+            console.print(f" - {title} ([dim]{channel}[/dim])")
+        else:
+            console.print(f" - {channel}")
 
 
 @channels.command(name="add")
 @click.argument("handle")
+@click.option("--title", help="Human-readable title for the channel.")
 @click.pass_context
-def add_channel(ctx: click.Context, handle: str) -> None:
+def add_channel(ctx: click.Context, handle: str, title: Optional[str]) -> None:
     """Add a channel to the tracked list."""
     config_manager = ctx.obj["config_manager"]
     config = config_manager.load()
@@ -213,10 +225,24 @@ def add_channel(ctx: click.Context, handle: str) -> None:
     if handle not in tracked:
         tracked.append(handle)
         config["default_channels"] = tracked
+        
+        if title:
+            if "channel_titles" not in config:
+                config["channel_titles"] = {}
+            config["channel_titles"][handle] = title
+            
         config_manager.save(config)
         console.print(f"[green]Added {handle} to tracking.[/green]")
     else:
-        console.print(f"[yellow]{handle} is already tracked.[/yellow]")
+        # Update title even if already tracked
+        if title:
+            if "channel_titles" not in config:
+                config["channel_titles"] = {}
+            config["channel_titles"][handle] = title
+            config_manager.save(config)
+            console.print(f"[green]Updated title for {handle}.[/green]")
+        else:
+            console.print(f"[yellow]{handle} is already tracked.[/yellow]")
 
 
 @channels.command(name="remove")
@@ -227,14 +253,84 @@ def remove_channel(ctx: click.Context, handle: str) -> None:
     config_manager = ctx.obj["config_manager"]
     config = config_manager.load()
     tracked = config.get("default_channels", [])
+    titles = config.get("channel_titles", {})
 
     if handle in tracked:
         tracked.remove(handle)
         config["default_channels"] = tracked
+        if handle in titles:
+            del titles[handle]
         config_manager.save(config)
         console.print(f"[green]Removed {handle} from tracking.[/green]")
     else:
         console.print(f"[yellow]{handle} is not tracked.[/yellow]")
+
+
+@channels.command(name="manage")
+@click.pass_context
+def manage_channels(ctx: click.Context) -> None:
+    """Interactively manage tracked channels using a TUI."""
+    load_dotenv()
+    api_id = int(os.getenv("TELEGRAM_API_ID", 0))
+    api_hash = os.getenv("TELEGRAM_API_HASH", "")
+
+    if not api_id or not api_hash:
+        console.print("[bold red]Error:[/bold red] TELEGRAM_API_ID/HASH missing in .env")
+        return
+
+def prepare_channel_choices(
+    all_dialogs: List[Dict[str, Any]], folders: Dict[int, str], tracked: List[str]
+) -> List[Any]:
+    """
+    Transform Telegram dialogs into InquirerPy Choice objects,
+    grouped by folder separators and pre-selected if already tracked.
+    """
+    # Group by folder
+    grouped: Dict[int, List[Dict[str, Any]]] = {}
+    for d in all_dialogs:
+        # Handle None as folder ID 0 (Main/Unsorted)
+        f_id = d["folder_id"] if d["folder_id"] is not None else 0
+        if f_id not in grouped:
+            grouped[f_id] = []
+        grouped[f_id].append(d)
+
+    choices = []
+    # Process folders in order (Main first, then others)
+    sorted_folder_ids = sorted(grouped.keys(), key=lambda x: (x != 0, x))
+    for f_id in sorted_folder_ids:
+        folder_name = folders.get(f_id, "Main" if f_id == 0 else f"Folder {f_id}")
+        choices.append(Separator(f"--- {folder_name} ---"))
+
+        # Sort channels by title within folder
+        folder_dialogs = sorted(grouped[f_id], key=lambda x: x["title"])
+        for d in folder_dialogs:
+            # Value will be the handle if available, otherwise ID
+            value = d["handle"] if d["handle"] else str(d["id"])
+            handle_display = f" (@{d['handle']})" if d["handle"] else f" (ID: {d['id']})"
+
+            # Ultra-robust pre-selection check
+            # Normalize tracked list: stringify, remove @, lowercase
+            normalized_tracked = [str(t).lstrip("@").lower() for t in tracked]
+            
+            # Candidates for matching
+            raw_id = str(d["id"])
+            handle = d["handle"].lower() if d["handle"] else None
+            
+            is_enabled = (
+                raw_id in normalized_tracked or
+                (handle and handle in normalized_tracked)
+            )
+
+            choices.append(
+                Choice(
+                    value=(
+                        f"@{value}" if d["handle"] and not value.startswith("@") else value
+                    ),
+                    name=f"{d['title']}{handle_display}",
+                    enabled=is_enabled,
+                )
+            )
+    return choices
 
 
 @channels.command(name="manage")
@@ -263,62 +359,39 @@ def manage_channels(ctx: click.Context) -> None:
             all_dialogs = await tg_client.fetch_dialogs()
             folders = await tg_client.fetch_folders()
 
-        # Group by folder
-        grouped: Dict[int, List[Dict[str, Any]]] = {}
-        for d in all_dialogs:
-            # Handle None as folder ID 0 (Main/Unsorted)
-            f_id = d["folder_id"] if d["folder_id"] is not None else 0
-            if f_id not in grouped:
-                grouped[f_id] = []
-            grouped[f_id].append(d)
+        choices = prepare_channel_choices(all_dialogs, folders, tracked)
 
-        choices = []
-        # Process folders in order (Main first, then others)
-        # Using a custom sort key to ensure 0 is always first
-        sorted_folder_ids = sorted(grouped.keys(), key=lambda x: (x != 0, x))
-        for f_id in sorted_folder_ids:
-            folder_name = folders.get(f_id, "Main" if f_id == 0 else f"Folder {f_id}")
-            choices.append(Separator(f"--- {folder_name} ---"))
+        # Check for actual choices (excluding separators)
+        has_choices = any(isinstance(c, Choice) for c in choices)
+        if not has_choices:
+            console.print(
+                "[yellow]No channels or groups found on your Telegram account to manage.[/yellow]"
+            )
+            return
 
-            # Sort channels by title within folder
-            folder_dialogs = sorted(grouped[f_id], key=lambda x: x["title"])
-            for d in folder_dialogs:
-                # Value will be the handle if available, otherwise ID
-                value = d["handle"] if d["handle"] else str(d["id"])
-                # Handle can be @username or username
-                handle_display = (
-                    f" (@{d['handle']})" if d["handle"] else f" (ID: {d['id']})"
-                )
-
-                # Check if currently tracked
-                is_enabled = (
-                    value in tracked
-                    or f"@{value}" in tracked
-                    or value.lstrip("@") in tracked
-                )
-
-                choices.append(
-                    Choice(
-                        value=(
-                            f"@{value}"
-                            if d["handle"] and not value.startswith("@")
-                            else value
-                        ),
-                        name=f"{d['title']}{handle_display}",
-                        enabled=is_enabled,
-                    )
-                )
-
-        selection = inquirer.fuzzy(
+        selection = await inquirer.checkbox(
             message="Select channels to track (Space to toggle, Enter to confirm):",
             choices=choices,
-            multiselect=True,
             transformer=lambda result: f"{len(result)} channels selected",
-            info=True,
-        ).execute()
+        ).execute_async()
 
         if selection is not None:
             config["default_channels"] = selection
+            
+            # Update title mapping for selected channels
+            if "channel_titles" not in config:
+                config["channel_titles"] = {}
+            
+            # Build title lookup from all_dialogs
+            title_lookup = {}
+            for d in all_dialogs:
+                val = f"@{d['handle']}" if d["handle"] else str(d["id"])
+                title_lookup[val] = d["title"]
+            
+            for s in selection:
+                if s in title_lookup:
+                    config["channel_titles"][s] = title_lookup[s]
+
             config_manager.save(config)
             console.print(
                 f"[bold green]✅ Success![/bold green] Updated tracking list with {len(selection)} channels."
