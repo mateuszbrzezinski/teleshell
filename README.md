@@ -41,21 +41,34 @@ GEMINI_API_KEY=your_gemini_api_key
 
 *Get your Telegram API credentials at [my.telegram.org](https://my.telegram.org) and your Gemini API key at [Google AI Studio](https://aistudio.google.com/).*
 
+### 4. Advanced Configuration (`config.yaml`)
+TeleShell stores its persistent state and settings in `~/.teleshell/config.yaml`.
+
+- **`default_channels`**: List of channels to process when no `-c` is specified.
+- **`channel_titles`**: Map of IDs/handles to human-friendly names (managed automatically via `tshell channels manage`).
+- **`summary_config`**: Configure summary length (`short`, `medium`, `long`).
+- **`prompt_templates`**: Customize the AI summarization prompt with `{{messages}}`, `{{channel_name}}`, and other placeholders.
+
 ### 3. Usage Examples
 
-#### Summarize a channel for the last 48 hours:
+#### Interactively select and manage tracked channels:
+```bash
+uv run tshell channels manage
+```
+
+#### List all currently tracked channels with their titles:
+```bash
+uv run tshell channels list
+```
+
+#### Summarize all tracked channels since your last run:
+```bash
+uv run tshell summarize
+```
+
+#### Summarize a specific channel for the last 48 hours:
 ```bash
 uv run tshell summarize -c @SwaperCom -t 48h
-```
-
-#### Summarize multiple channels since your last run:
-```bash
-uv run tshell summarize -c @SwaperCom,@TelegramNews -t since_last_run
-```
-
-#### Get a quick summary of what happened today:
-```bash
-uv run tshell summarize -c @SwaperCom -t today
 ```
 
 ---
